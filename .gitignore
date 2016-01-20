@@ -1,0 +1,17 @@
+*.iml
+.gradle
+/local.properties
+/.idea/workspace.xml
+/.idea/libraries
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+
+# Signing keys, build outputs, Firebase config
+*.jks
+*.keystore
+*.apk
+*.aab
+/app/release/
+google-services.json
