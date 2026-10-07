@@ -50,6 +50,20 @@ public class MainActivity extends AppCompatActivity {
     /** Check boxes / radio buttons of the current question; tag = choice letter. */
     public final List<CompoundButton> optionViews = new ArrayList<CompoundButton>();
     private boolean pendingStart = false;
+    /** Показан ли правильный ответ на текущий вопрос (сбрасывается при смене вопроса). */
+    public boolean answerRevealed = false;
+
+    /**
+     * Состояние квиза, которое переживает поворот экрана. Хранится в памяти через
+     * onRetainCustomNonConfigurationInstance(), а не в Bundle: список вопросов может быть
+     * большим, а Bundle ограничен примерно 1 МБ. Ссылок на Activity здесь нет, утечки не будет.
+     */
+    private static final class SavedQuiz {
+        List<tectFragen> fragen;
+        int index;
+        boolean answerRevealed;
+        String checkedLetters; // буквы отмеченных вариантов, например "AC"
+    }
 
     public String APP_PREFERENCES_FNAME;
     public boolean APP_PREFERENCES_SHUFFLEQ = true;
@@ -133,14 +147,7 @@ public class MainActivity extends AppCompatActivity {
         btnAugen.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (LaufendeFrage < 0 || LaufendeFrage >= fragenLs.size()) return; // nothing loaded
-                tectFragen frage = fragenLs.get(LaufendeFrage);
-                btnAugen.setText(frage.Antworten);
-                for (CompoundButton option : optionViews) {
-                    if (frage.Antworten.contains((String) option.getTag())) {
-                        option.setTextColor(Color.BLUE);
-                    }
-                }
+                showAnswer();
             }
         });
 
@@ -168,6 +175,58 @@ public class MainActivity extends AppCompatActivity {
                 startQuiz();
             }
         });
+
+        // После поворота экрана Activity создаётся заново: возвращаем вопросы и позицию
+        Object saved = getLastCustomNonConfigurationInstance();
+        if (saved instanceof SavedQuiz) {
+            restoreQuiz((SavedQuiz) saved);
+        }
+    }
+
+    /** Подсвечивает правильные варианты текущего вопроса. Ничего не делает, пока файл не загружен. */
+    private void showAnswer() {
+        if (LaufendeFrage < 0 || LaufendeFrage >= fragenLs.size()) return;
+        tectFragen frage = fragenLs.get(LaufendeFrage);
+        btnAugen.setText(frage.Antworten);
+        for (CompoundButton option : optionViews) {
+            if (frage.Antworten.contains((String) option.getTag())) {
+                option.setTextColor(Color.BLUE);
+            }
+        }
+        answerRevealed = true;
+    }
+
+    @Override
+    public Object onRetainCustomNonConfigurationInstance() {
+        if (fragenLs.isEmpty() || LaufendeFrage < 0) return null; // нечего сохранять
+        SavedQuiz state = new SavedQuiz();
+        state.fragen = fragenLs;
+        state.index = LaufendeFrage;
+        state.answerRevealed = answerRevealed;
+        StringBuilder checked = new StringBuilder();
+        for (CompoundButton option : optionViews) {
+            if (option.isChecked()) {
+                checked.append((String) option.getTag());
+            }
+        }
+        state.checkedLetters = checked.toString();
+        return state;
+    }
+
+    private void restoreQuiz(SavedQuiz state) {
+        fragenLs = state.fragen;
+        LaufendeFrage = state.index;
+        btnOpen.setVisibility(View.GONE);
+        btnFwd.setEnabled(true);
+        funke.AndereFrage(3); // перерисовать текущий вопрос, не меняя номер
+        for (CompoundButton option : optionViews) {
+            if (state.checkedLetters.contains((String) option.getTag())) {
+                option.setChecked(true);
+            }
+        }
+        if (state.answerRevealed) {
+            showAnswer();
+        }
     }
 
     private boolean hasStoragePermission() {
