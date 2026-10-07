@@ -1,14 +1,13 @@
 package com.rasa.quizkama;
 
-import android.os.Environment;
+import android.net.Uri;
 import android.util.Log;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -22,33 +21,31 @@ public class tectLoad extends tectApp {
     }
 
     /**
-     * Loads the questions from the file chosen in the preferences (or Download/tect.txt).
+     * Загружает вопросы из файла, выбранного пользователем в системном диалоге.
      *
-     * @return number of loaded questions; 0 if nothing could be loaded (the user has been
-     * told why, and the previously loaded questions, if any, are left untouched).
+     * @param uri адрес файла (content://...)
+     * @return число загруженных вопросов; 0, если загрузить не удалось (пользователь уже
+     * получил сообщение о причине, а ранее загруженные вопросы остались нетронутыми).
      */
-    public int ladeTest() {
-        // Always re-read preferences: the file name may have just been changed by the
-        // "Open..." dialog, after onResume() already ran.
+    public int ladeTest(Uri uri) {
+        // Настройки перечитываем каждый раз: переключатель перемешивания мог измениться
         ta.funke.ConfLesen();
-
-        File file;
-        if ("none".equals(ta.APP_PREFERENCES_FNAME)) {
-            File downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-            file = new File(downloads, "tect.txt");
-        } else {
-            file = new File(ta.APP_PREFERENCES_FNAME);
-        }
 
         List<tectFragen> loaded;
         int skipped;
-        try (BufferedReader br = new BufferedReader(
-                new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
+        try (InputStream in = ta.getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                return fail(R.string.err_file_not_found, new FileNotFoundException(String.valueOf(uri)));
+            }
+            BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
             Parser parser = new Parser(br);
             loaded = parser.parse();
             skipped = parser.getSkippedCount();
         } catch (FileNotFoundException e) {
             return fail(R.string.err_file_not_found, e);
+        } catch (SecurityException e) {
+            // доступ к файлу был отозван или не сохранился после перезапуска
+            return fail(R.string.err_no_access, e);
         } catch (IOException | RuntimeException e) {
             return fail(R.string.err_file_read, e);
         }

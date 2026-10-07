@@ -17,7 +17,7 @@ public class tectSharedFuncts extends tectApp {
     public boolean ConfLesen(){
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(ta);
         ta.APP_PREFERENCES_SHUFFLEQ = preferences.getBoolean("shuffle_q", true);
-        ta.APP_PREFERENCES_FNAME = preferences.getString("tect_fname", "none");
+        ta.APP_PREFERENCES_URI = preferences.getString("tect_uri", null);
         return false;
     }
 
