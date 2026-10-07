@@ -24,18 +24,17 @@ jobs:
       - name: Получить код
         uses: actions/checkout@v4
 
-      # SDK ставим под JDK по умолчанию (17): sdkmanager нового образца на Java 8 не запускается
       - name: Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-26 build-tools;26.0.2'
+          packages: 'platform-tools platforms;android-35 build-tools;34.0.0'
 
-      # Проект собирается Gradle 4.1 и AGP 3.0.1, им нужна именно Java 8
-      - name: JDK 8
+      # AGP 8.x требует JDK 17
+      - name: JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '8'
+          java-version: '17'
           cache: gradle
 
       - name: Права на запуск gradlew

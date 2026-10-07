@@ -37,18 +37,17 @@ The **Settings** screen has the *Shuffle questions* switch.
 
 ## Building
 
-This is a legacy project from 2017, and its toolchain is old:
+Requirements: JDK 17 and the Android SDK (platform 35, build-tools 34.0.0).
 
-- Android Gradle Plugin 3.0.1, Gradle 4.1 (wrapper included)
-- `compileSdkVersion` / `targetSdkVersion` 26, `minSdkVersion` 23
-- Android Support Library 26.1.0 (pre-AndroidX)
+- Android Gradle Plugin 8.7.3, Gradle 8.9 (wrapper included)
+- `compileSdk` 35, `targetSdk` 34, `minSdk` 23
+- AndroidX (AppCompat 1.7.0, ConstraintLayout 2.1.4)
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-> `jcenter()` is shut down, so a modern build will likely need `mavenCentral()` in its place
-> and an upgraded AGP/Gradle.
+Unit tests: `./gradlew testDebugUnitTest`.
 
 Release signing isn't configured in the repo. Use your own keystore via
 *Build > Generate Signed Bundle / APK* in Android Studio.

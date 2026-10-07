@@ -1,9 +1,8 @@
 package com.rasa.quizkama;
 
 import android.os.Bundle;
-import android.preference.Preference;
 import android.content.Intent;
-import android.support.v7.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatActivity;
 import android.view.MenuInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -79,35 +78,31 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        Preference pref = null;
-        switch(item.getItemId())
-        {
-            case R.id.menu_open:
-                if (!hasStoragePermission()) {
-                    requestStoragePermission();
-                    break;
-                }
-                OpenFileDialog fileDialog = new OpenFileDialog(this)
-                        .setFilter(".*\\.txt")
-                        .setOpenDialogListener(new OpenFileDialog.OpenDialogListener() {
-                            @Override
-                            public void OnSelectedFile(String fileName) {
-                                Toast.makeText(getApplicationContext(), fileName, Toast.LENGTH_LONG).show();
-                                SharedPreferences.Editor editor = getSharedPreferences(
-                                        getPackageName() + "_preferences", MODE_PRIVATE).edit();
-                                editor.putString("tect_fname", fileName);
-                                editor.apply();
-                                startQuiz();
-                            }
-                        });
-                fileDialog.show();
-                break;
-            case R.id.menu_settings:
-                startActivity(new Intent(MainActivity.this, SettingsActivity.class));
-                break;
-            case R.id.options_about:
-                break;
+        // if вместо switch: в AGP 8 идентификаторы ресурсов не являются константами
+        int id = item.getItemId();
+        if (id == R.id.menu_open) {
+            if (!hasStoragePermission()) {
+                requestStoragePermission();
+                return true;
+            }
+            OpenFileDialog fileDialog = new OpenFileDialog(this)
+                    .setFilter(".*\\.txt")
+                    .setOpenDialogListener(new OpenFileDialog.OpenDialogListener() {
+                        @Override
+                        public void OnSelectedFile(String fileName) {
+                            Toast.makeText(getApplicationContext(), fileName, Toast.LENGTH_LONG).show();
+                            SharedPreferences.Editor editor = getSharedPreferences(
+                                    getPackageName() + "_preferences", MODE_PRIVATE).edit();
+                            editor.putString("tect_fname", fileName);
+                            editor.apply();
+                            startQuiz();
+                        }
+                    });
+            fileDialog.show();
+        } else if (id == R.id.menu_settings) {
+            startActivity(new Intent(MainActivity.this, SettingsActivity.class));
         }
+        // R.id.options_about пока ничего не делает
         return true;
     }
 
