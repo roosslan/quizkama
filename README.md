@@ -1,46 +1,45 @@
 # quizkama
 
-A small Android app for drilling multiple-choice exam questions from a plain-text file.
-Load a question dump, flip through the questions one at a time, pick an answer, and reveal
-the correct one when you're ready.
+Небольшое Android-приложение для тренировки тестовых вопросов с выбором ответа из обычного текстового файла.
+Загрузите файл с вопросами, листайте их по одному, выбирайте ответ и в нужный момент показывайте правильный.
 
-## Features
+## Возможности
 
-- Loads questions from a `.txt` file picked with the system file picker (no storage permissions needed)
-- Single-answer questions are shown as radio buttons, multi-answer questions as checkboxes
-- Answer options are shuffled for every question; question order can be shuffled too (Settings)
-- Reveal the correct answer: it's highlighted in blue
-- Hands-free navigation with swipes and the volume keys
-- Ignores `gratisexam` watermark lines that some exam dumps contain
+- Загружает вопросы из `.txt`-файла, выбранного через системный диалог (разрешения на доступ к памяти не нужны)
+- Вопросы с одним ответом показываются радиокнопками, с несколькими — флажками
+- Варианты ответа перемешиваются для каждого вопроса; порядок вопросов тоже можно перемешивать (Настройки)
+- Показ правильного ответа: он подсвечивается синим
+- Навигация без касаний по кнопкам: свайпы и клавиши громкости
+- Игнорирует строки-водяные знаки `gratisexam`, которые встречаются в некоторых дампах экзаменов
 
-## Preparing a question file from a gratisexam-PDF
+## Подготовка файла с вопросами из PDF с gratisexam
 
-Exam dumps from gratisexam come as PDFs, and the app only reads plain text, so convert them first:
+Дампы экзаменов с gratisexam приходят в PDF, а приложение читает только обычный текст, поэтому сначала их нужно конвертировать:
 
-1. Open the PDF in [Sumatra PDF](https://www.sumatrapdfreader.org/).
-2. Choose **File > Save As...** and set the file type to **Text documents (\*.txt)**.
-3. Copy the resulting `.txt` to the device.
+1. Откройте PDF в [Sumatra PDF](https://www.sumatrapdfreader.org/).
+2. Выберите **Файл > Сохранить как...** и задайте тип файла **Текстовые документы (\*.txt)**.
+3. Скопируйте получившийся `.txt` на устройство.
 
-## Usage
+## Использование
 
-1. Put your question file anywhere on the device (or in a cloud storage the system picker can see).
-2. Tap **Open** and choose the file in the system picker. The app remembers it: next time **Open**
-   loads the same file right away. To pick another one use the menu: **Open...**.
-3. Navigate:
+1. Положите файл с вопросами в любое место на устройстве (или в облачное хранилище, которое видит системный диалог).
+2. Нажмите **Open** и выберите файл в системном диалоге. Приложение запомнит его: в следующий раз
+   **Open** сразу загрузит тот же файл. Чтобы выбрать другой, используйте меню: **Open...**.
+3. Навигация:
 
-| Action | Touch | Keys |
+| Действие | Касание | Клавиши |
 |---|---|---|
-| Next question | Tap **Next** or swipe left | Volume Down |
-| Previous question | Tap **Back** or swipe right | Volume Up |
-| Reveal answer | Tap **Answer** or swipe up | — |
+| Следующий вопрос | Кнопка **Next** или свайп влево | Громкость вниз |
+| Предыдущий вопрос | Кнопка **Back** или свайп вправо | Громкость вверх |
+| Показать ответ | Кнопка **Answer** или свайп вверх | — |
 
-The **Settings** screen has the *Shuffle questions* switch.
+В экране **Settings** есть переключатель *Shuffle questions* (перемешивать вопросы).
 
-## Building
+## Сборка
 
-Requirements: JDK 17 and the Android SDK (platform 35, build-tools 34.0.0).
+Требования: JDK 17 и Android SDK (платформа 35, build-tools 34.0.0).
 
-- Android Gradle Plugin 8.7.3, Gradle 8.9 (wrapper included)
+- Android Gradle Plugin 8.7.3, Gradle 8.9 (wrapper в репозитории)
 - `compileSdk` 35, `targetSdk` 34, `minSdk` 23
 - AndroidX (AppCompat 1.7.0, ConstraintLayout 2.1.4)
 
@@ -48,34 +47,33 @@ Requirements: JDK 17 and the Android SDK (platform 35, build-tools 34.0.0).
 ./gradlew assembleDebug
 ```
 
-Unit tests: `./gradlew testDebugUnitTest`.
+Модульные тесты: `./gradlew testDebugUnitTest`.
 
-Release signing isn't configured in the repo. Use your own keystore via
-*Build > Generate Signed Bundle / APK* in Android Studio.
+Подпись релиза в репозитории не настроена. Используйте свой keystore через
+*Build > Generate Signed Bundle / APK* в Android Studio.
 
 ## CI/CD
 
 GitHub Actions (`.github/workflows`):
 
-- **CI** (`ci.yml`) runs on every push to `trunk` and on pull requests: unit tests
-  (`testDebugUnitTest`) and a debug build; the debug APK and test reports are attached to the run.
-- **Release** (`release.yml`) runs when a tag like `v2.12` is pushed
-  (`git tag v2.12 && git push origin v2.12`). It builds the APK and publishes it as a GitHub Release.
-  If the repository secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`
-  are set, the release APK is signed with your key; otherwise the debug build is published and the
-  release is marked as a pre-release.
+- **CI** (`ci.yml`) запускается при каждом push в `trunk` и в pull request'ах: модульные тесты
+  (`testDebugUnitTest`) и сборка debug; debug APK и отчёты о тестах прикрепляются к запуску.
+- **Release** (`release.yml`) запускается при push тега вида `v2.12`
+  (`git tag v2.12 && git push origin v2.12`). Он собирает APK и публикует его как GitHub Release.
+  Если в секретах репозитория заданы `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` и `KEY_PASSWORD`,
+  релизный APK подписывается вашим ключом; иначе публикуется debug-сборка, а релиз помечается как предварительный.
 
-To create the keystore secret: `base64 -w0 release.jks` (on Windows: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.jks"))`).
+Чтобы получить значение секрета с keystore: `base64 -w0 release.jks` (в Windows: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.jks"))`).
 
-## Project structure
+## Структура проекта
 
 ```text
 app/src/main/java/.../quizkama/
-├── MainActivity.java         # UI, buttons, swipe and volume-key navigation
-├── Parser.java               # Parses the QUESTION / A. / Correct Answer: text format
-├── tectLoad.java             # Reads the chosen file via ContentResolver, runs the parser, shuffles
-├── tectSharedFuncts.java     # Renders the current question, navigation, preferences
-├── tectFragen.java           # Question model (text, options, correct answer)
-├── OnSwipeTouchListener.java # Swipe gesture detection
-└── SettingsActivity.java     # Preferences screen
+├── MainActivity.java         # Интерфейс, кнопки, навигация свайпами и клавишами громкости
+├── Parser.java               # Разбор текстового формата QUESTION / A. / Correct Answer:
+├── tectLoad.java             # Читает выбранный файл через ContentResolver, запускает парсер, перемешивает
+├── tectSharedFuncts.java     # Отрисовка текущего вопроса, навигация, настройки
+├── tectFragen.java           # Модель вопроса (текст, варианты, правильный ответ)
+├── OnSwipeTouchListener.java # Распознавание свайпов
+└── SettingsActivity.java     # Экран настроек
 ```
