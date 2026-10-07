@@ -53,6 +53,20 @@ This is a legacy project from 2017, and its toolchain is old:
 Release signing isn't configured in the repo. Use your own keystore via
 *Build > Generate Signed Bundle / APK* in Android Studio.
 
+## CI/CD
+
+GitHub Actions (`.github/workflows`):
+
+- **CI** (`ci.yml`) runs on every push to `trunk` and on pull requests: unit tests
+  (`testDebugUnitTest`) and a debug build; the debug APK and test reports are attached to the run.
+- **Release** (`release.yml`) runs when a tag like `v2.12` is pushed
+  (`git tag v2.12 && git push origin v2.12`). It builds the APK and publishes it as a GitHub Release.
+  If the repository secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`
+  are set, the release APK is signed with your key; otherwise the debug build is published and the
+  release is marked as a pre-release.
+
+To create the keystore secret: `base64 -w0 release.jks` (on Windows: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.jks"))`).
+
 ## Project structure
 
 ```text
