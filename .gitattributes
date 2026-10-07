@@ -1,1 +1,8 @@
 * text=auto eol=crlf
+
+# Скрипт gradlew должен быть с LF на любой ОС, иначе он не запустится на Linux (CI)
+gradlew text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+.github/** text eol=lf
+*.jar binary
