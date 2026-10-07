@@ -21,17 +21,20 @@ public class tectSharedFuncts extends tectApp {
         return false;
     }
 
-    public void AndereFrage(int Wohin){ // Wohin 0 - назад, 1 - вперед, 2 - в начало
+    public void AndereFrage(int Wohin){ // Wohin 0 - назад, 1 - вперед, 2 - в начало, 3 - перерисовать текущий
         if (ta.fragenLs.isEmpty()) return; // nothing loaded yet (e.g. volume key / swipe at startup)
         if (Wohin == 0 && ta.LaufendeFrage < 1) return;
         if (Wohin == 1 && ta.LaufendeFrage >= ta.fragenLs.size() - 1) return;
+        if (Wohin == 3 && (ta.LaufendeFrage < 0 || ta.LaufendeFrage >= ta.fragenLs.size())) return;
 
         ta.lLv.removeAllViews();
+        ta.answerRevealed = false;
         ta.optionViews.clear();
         switch (Wohin){
             case 0: ta.LaufendeFrage--; break;
             case 1: ta.LaufendeFrage++; break;
             case 2: ta.LaufendeFrage = 0; break;
+            case 3: break; // номер вопроса не меняется
         }
         tectFragen frage = ta.fragenLs.get(ta.LaufendeFrage);
         ta.mTextMessage.setText(frage.frageText);
