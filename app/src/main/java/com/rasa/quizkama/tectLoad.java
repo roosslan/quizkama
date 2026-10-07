@@ -41,9 +41,12 @@ public class tectLoad extends tectApp {
         }
 
         List<tectFragen> loaded;
+        int skipped;
         try (BufferedReader br = new BufferedReader(
                 new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
-            loaded = new Parser(br).parse();
+            Parser parser = new Parser(br);
+            loaded = parser.parse();
+            skipped = parser.getSkippedCount();
         } catch (FileNotFoundException e) {
             return fail(R.string.err_file_not_found, e);
         } catch (IOException | RuntimeException e) {
@@ -65,6 +68,10 @@ public class tectLoad extends tectApp {
             Collections.shuffle(loaded);
         }
         ta.fragenLs = loaded;
+        if (skipped > 0) {
+            Toast.makeText(ta, ta.getString(R.string.warn_questions_skipped, loaded.size(), skipped),
+                    Toast.LENGTH_LONG).show();
+        }
         return loaded.size();
     }
 

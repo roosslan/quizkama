@@ -4,7 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
+import java.util.TreeSet;
 
 /**
  * Parses the plain-text question format:
@@ -18,14 +18,17 @@ import java.util.regex.Pattern;
  * ...anything up to the next "QUESTION " line is ignored (explanations etc.)
  * </pre>
  *
- * Questions that are malformed (no choices, no "Correct Answer:" line, or a correct answer
- * that doesn't match any choice letter) are dropped instead of corrupting their neighbours.
+ * Choices must be lettered consecutively starting from "A." — a line that merely looks like a
+ * choice ("E. coli is...", a wrapped "C. Smith") is treated as a continuation of the previous text.
+ *
+ * Questions that are malformed (fewer than two choices, no "Correct Answer:" line, or a correct
+ * answer that doesn't match any choice letter) are dropped instead of corrupting their
+ * neighbours; {@link #getSkippedCount()} tells how many.
  */
 public class Parser {
     private static final String CORRECT_ANSWER = "Correct Answer:";
     private static final String QUESTION_MARK = "QUESTION ";
     private static final String WATERMARK = "gratisexam";
-    private static final Pattern CHOICE_START = Pattern.compile("^[A-Z]\\.\\s.*");
 
     private enum State { SKIP, QUESTION, CHOICES }
 
@@ -35,6 +38,9 @@ public class Parser {
     private StringBuilder questionText;
     private ArrayList<String> choices;
     private StringBuilder choice;
+    private char nextLetter; // letter the next choice has to start with
+    private int questionHeaders;
+    private int skipped;
 
     Parser(BufferedReader bufferedReader) {
         this.bufferedReader = bufferedReader;
@@ -43,17 +49,21 @@ public class Parser {
     List<tectFragen> parse() {
         final List<tectFragen> result = new ArrayList<>();
         state = State.SKIP;
+        questionHeaders = 0;
+        skipped = 0;
 
         String line;
         while ((line = readLine()) != null) {
             if (line.contains(WATERMARK)) {
                 continue;
             }
-            line = line.replace("\uFEFF", "").trim(); // BOM + surrounding whitespace
+            // BOM; non-breaking spaces and tabs (common in PDF-to-text output); surrounding whitespace
+            line = line.replace("\uFEFF", "").replace('\u00A0', ' ').replace('\t', ' ').trim();
 
             if (line.startsWith(QUESTION_MARK)) {
                 // A new question always ends the previous one; if that one was still
-                // incomplete it is silently dropped.
+                // incomplete it is dropped (and counted in getSkippedCount()).
+                questionHeaders++;
                 startQuestion();
                 continue;
             }
@@ -62,9 +72,9 @@ public class Parser {
                 case SKIP:
                     break;
                 case QUESTION:
-                    if (line.startsWith(CORRECT_ANSWER)) {
+                    if (startsWithIgnoreCase(line, CORRECT_ANSWER)) {
                         state = State.SKIP; // answer without choices: nothing to show
-                    } else if (CHOICE_START.matcher(line).matches()) {
+                    } else if (isChoiceStart(line)) {
                         startChoice(line);
                         state = State.CHOICES;
                     } else {
@@ -72,14 +82,14 @@ public class Parser {
                     }
                     break;
                 case CHOICES:
-                    if (line.startsWith(CORRECT_ANSWER)) {
+                    if (startsWithIgnoreCase(line, CORRECT_ANSWER)) {
                         flushChoice();
                         tectFragen q = buildQuestion(line.substring(CORRECT_ANSWER.length()));
                         if (q != null) {
                             result.add(q);
                         }
                         state = State.SKIP;
-                    } else if (CHOICE_START.matcher(line).matches()) {
+                    } else if (isChoiceStart(line)) {
                         flushChoice();
                         startChoice(line);
                     } else {
@@ -88,7 +98,13 @@ public class Parser {
                     break;
             }
         }
+        skipped = questionHeaders - result.size();
         return result;
+    }
+
+    /** Number of questions found in the last parse() that couldn't be used. */
+    public int getSkippedCount() {
+        return skipped;
     }
 
     private String readLine() {
@@ -103,11 +119,13 @@ public class Parser {
         questionText = new StringBuilder();
         choices = new ArrayList<>();
         choice = null;
+        nextLetter = 'A';
         state = State.QUESTION;
     }
 
     private void startChoice(String line) {
         choice = new StringBuilder(line);
+        nextLetter++;
     }
 
     private void flushChoice() {
@@ -115,6 +133,18 @@ public class Parser {
             choices.add(choice.toString());
             choice = null;
         }
+    }
+
+    /** "A. text" for the expected letter; the line is already trimmed and normalized. */
+    private boolean isChoiceStart(String line) {
+        return line.length() > 2
+                && line.charAt(0) == nextLetter
+                && line.charAt(1) == '.'
+                && line.charAt(2) == ' ';
+    }
+
+    private static boolean startsWithIgnoreCase(String line, String prefix) {
+        return line.regionMatches(true, 0, prefix, 0, prefix.length());
     }
 
     private static void append(StringBuilder sb, String line) {
@@ -127,29 +157,32 @@ public class Parser {
         sb.append(line);
     }
 
-    /** Returns null if the answer doesn't refer to existing choice letters. */
+    /** Returns null if the question is unusable (too few choices, bad or unknown answer letters). */
     private tectFragen buildQuestion(String rawAnswer) {
-        // "AC", "A, C", "a c " -> "AC"
-        String answer = rawAnswer.replaceAll("[^A-Za-z]", "").toUpperCase();
-        if (answer.isEmpty() || choices.isEmpty()) {
+        if (choices.size() < 2) {
             return null;
         }
-        for (int i = 0; i < answer.length(); i++) {
-            boolean found = false;
-            for (String c : choices) {
-                if (c.charAt(0) == answer.charAt(i)) {
-                    found = true;
-                    break;
-                }
+        // "AC", "A, C", "ca", "A, A" -> sorted, de-duplicated "AC"/"A"
+        TreeSet<Character> letters = new TreeSet<>();
+        for (char c : rawAnswer.toUpperCase().toCharArray()) {
+            if (c >= 'A' && c <= 'Z') {
+                letters.add(c);
             }
-            if (!found) {
+        }
+        if (letters.isEmpty()) {
+            return null;
+        }
+        StringBuilder answer = new StringBuilder();
+        for (char letter : letters) {
+            if (letter >= 'A' + choices.size()) { // choices are lettered A, B, C... consecutively
                 return null;
             }
+            answer.append(letter);
         }
         tectFragen q = new tectFragen();
         q.frageText = questionText.toString();
         q.Vorschlage = choices;
-        q.Antworten = answer;
+        q.Antworten = answer.toString();
         return q;
     }
 }

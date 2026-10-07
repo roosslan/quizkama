@@ -109,4 +109,131 @@ public class ParserTest {
         List<tectFragen> r = parse("\uFEFFQUESTION 1\nQ?\nA. a\nB. b\nCorrect Answer: A\n");
         assertEquals(1, r.size());
     }
+
+    // ---- choice detection -------------------------------------------------------------
+
+    @Test
+    public void questionTextLineThatLooksLikeAChoiceDoesNotStartChoices() {
+        List<tectFragen> r = parse(
+                "QUESTION 1\nWhich bacteria?\nE. coli is found in\nthe gut.\nA. yes\nB. no\nCorrect Answer: A\n");
+        assertEquals(1, r.size());
+        assertEquals("Which bacteria? E. coli is found in the gut.", r.get(0).frageText);
+        assertEquals(Arrays.asList("A. yes", "B. no"), r.get(0).Vorschlage);
+    }
+
+    @Test
+    public void wrappedLineThatLooksLikeAChoiceStaysInPreviousChoice() {
+        List<tectFragen> r = parse(
+                "QUESTION 1\nWho?\nA. Ask Dr.\nC. Smith about it\nB. no\nCorrect Answer: B\n");
+        assertEquals(Arrays.asList("A. Ask Dr. C. Smith about it", "B. no"), r.get(0).Vorschlage);
+    }
+
+    @Test
+    public void choicesMustBeLetteredConsecutively() {
+        // A missing letter means the rest is treated as continuation; one choice is not a quiz.
+        assertTrue(parse("QUESTION 1\nQ\nA. a\nC. c\nCorrect Answer: A\n").isEmpty());
+    }
+
+    @Test
+    public void singleChoiceQuestionIsDropped() {
+        assertTrue(parse("QUESTION 1\nQ?\nA. only\nCorrect Answer: A\n").isEmpty());
+    }
+
+    // ---- normalization ----------------------------------------------------------------
+
+    @Test
+    public void nonBreakingSpacesAndTabsAreNormalized() {
+        List<tectFragen> r = parse(
+                "QUESTION\u00A01\nQ?\nA.\u00A0one\nB.\ttwo\nCorrect\u00A0Answer:\u00A0B\n");
+        assertEquals(1, r.size());
+        assertEquals(Arrays.asList("A. one", "B. two"), r.get(0).Vorschlage);
+    }
+
+    @Test
+    public void answerLettersAreSortedAndDeduplicated() {
+        assertEquals("AC", parse("QUESTION 1\nQ\nA. a\nB. b\nC. c\nCorrect Answer: CA\n").get(0).Antworten);
+        assertEquals("A", parse("QUESTION 1\nQ\nA. a\nB. b\nCorrect Answer: A, A\n").get(0).Antworten);
+    }
+
+    @Test
+    public void correctAnswerPrefixIsCaseInsensitive() {
+        assertEquals("B", parse("QUESTION 1\nQ\nA. a\nB. b\nCorrect answer: B\n").get(0).Antworten);
+        assertEquals("B", parse("QUESTION 1\nQ\nA. a\nB. b\nCORRECT ANSWER:B\n").get(0).Antworten);
+    }
+
+    // ---- skipped counter --------------------------------------------------------------
+
+    @Test
+    public void skippedCountIsZeroForCleanFile() {
+        Parser p = new Parser(new BufferedReader(new StringReader(
+                "QUESTION 1\nQ\nA. a\nB. b\nCorrect Answer: A\n")));
+        assertEquals(1, p.parse().size());
+        assertEquals(0, p.getSkippedCount());
+    }
+
+    @Test
+    public void skippedCountReportsEveryDroppedQuestion() {
+        Parser p = new Parser(new BufferedReader(new StringReader(
+                "QUESTION 1\nno choices\nCorrect Answer: see exhibit\n"   // dropped
+                        + "QUESTION 2\nQ\nA. a\nB. b\n"                    // no answer line
+                        + "QUESTION 3\nQ\nA. a\nB. b\nCorrect Answer: Z\n" // unknown letter
+                        + "QUESTION 4\nQ\nA. a\nB. b\nCorrect Answer: B\n" // ok
+                        + "QUESTION 5\nQ\nA. a\nB. b")));                   // truncated
+        assertEquals(1, p.parse().size());
+        assertEquals(4, p.getSkippedCount());
+    }
+
+    // ---- a realistic dump -------------------------------------------------------------
+
+    @Test
+    public void realisticDump() {
+        String dump = String.join("\n",
+                "Exam ABC-123",
+                "www.gratisexam.com",
+                "",
+                "QUESTION 1",
+                "You need to configure a server. Which two actions should you",
+                "perform? (Choose two.)",
+                "A. Install the role.",
+                "B. Reboot the server. Then verify",
+                "the configuration.",
+                "C. Delete the logs",
+                "D. Update the firmware",
+                "Correct Answer: AB",
+                "Section: (none)",
+                "Explanation/Reference:",
+                "Explanation:",
+                "A. is needed because the role is required.",
+                "http://www.gratisexam.com/",
+                "",
+                "QUESTION 2",
+                "DRAG DROP",
+                "Match the items.",
+                "Select and Place:",
+                "Correct Answer:",
+                "Section: (none)",
+                "",
+                "QUESTION 3",
+                "Which command lists files?",
+                "A. ls",
+                "B. cd",
+                "C. rm",
+                "Correct Answer: A",
+                "");
+        Parser p = new Parser(new BufferedReader(new StringReader(dump)));
+        List<tectFragen> r = p.parse();
+
+        assertEquals(2, r.size());
+        assertEquals(1, p.getSkippedCount());
+
+        tectFragen q1 = r.get(0);
+        assertEquals("You need to configure a server. Which two actions should you perform? (Choose two.)",
+                q1.frageText);
+        assertEquals(4, q1.Vorschlage.size());
+        assertEquals("B. Reboot the server. Then verify the configuration.", q1.Vorschlage.get(1));
+        assertEquals("AB", q1.Antworten);
+
+        assertEquals("Which command lists files?", r.get(1).frageText);
+        assertEquals("A", r.get(1).Antworten);
+    }
 }
