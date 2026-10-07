@@ -6,7 +6,7 @@ the correct one when you're ready.
 
 ## Features
 
-- Loads questions from a `.txt` file on the device
+- Loads questions from a `.txt` file picked with the system file picker (no storage permissions needed)
 - Single-answer questions are shown as radio buttons, multi-answer questions as checkboxes
 - Answer options are shuffled for every question; question order can be shuffled too (Settings)
 - Reveal the correct answer: it's highlighted in blue
@@ -23,8 +23,9 @@ Exam dumps from gratisexam come as PDFs, and the app only reads plain text, so c
 
 ## Usage
 
-1. Put your question file on the device. By default the app reads `Download/tect.txt`.
-2. Tap **Open** to load it, or pick a different file via the menu: **Open...**.
+1. Put your question file anywhere on the device (or in a cloud storage the system picker can see).
+2. Tap **Open** and choose the file in the system picker. The app remembers it: next time **Open**
+   loads the same file right away. To pick another one use the menu: **Open...**.
 3. Navigate:
 
 | Action | Touch | Keys |
@@ -72,10 +73,9 @@ To create the keystore secret: `base64 -w0 release.jks` (on Windows: `[Convert]:
 app/src/main/java/.../quizkama/
 ├── MainActivity.java         # UI, buttons, swipe and volume-key navigation
 ├── Parser.java               # Parses the QUESTION / A. / Correct Answer: text format
-├── tectLoad.java             # Reads the file, runs the parser, shuffles questions and options
+├── tectLoad.java             # Reads the chosen file via ContentResolver, runs the parser, shuffles
 ├── tectSharedFuncts.java     # Renders the current question, navigation, preferences
 ├── tectFragen.java           # Question model (text, options, correct answer)
-├── OpenFileDialog.java       # Simple file picker for .txt files
 ├── OnSwipeTouchListener.java # Swipe gesture detection
 └── SettingsActivity.java     # Preferences screen
 ```

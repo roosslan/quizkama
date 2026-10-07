@@ -9,7 +9,7 @@
     <string name="err_file_read">Can not read the file</string>
     <string name="err_no_questions">No questions found in the file</string>
     <string name="warn_questions_skipped">Loaded %1$d questions, skipped %2$d that could not be parsed</string>
-    <string name="err_permission_denied">Storage permission is required to read the question file</string>
+    <string name="err_no_access">No access to the file. Please choose it again</string>
 
     <!-- Strings related to Settings -->
 

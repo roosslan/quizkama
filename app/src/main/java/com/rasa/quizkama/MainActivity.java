@@ -1,7 +1,13 @@
 package com.rasa.quizkama;
 
 import android.os.Bundle;
+import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
+import android.provider.OpenableColumns;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import android.view.MenuInflater;
 import android.view.Menu;
@@ -11,7 +17,6 @@ import android.view.ViewConfiguration;
 import android.widget.CompoundButton;
 import android.widget.Button;
 import android.widget.LinearLayout;
-import android.content.pm.PackageManager;
 import android.widget.TextView;
 import android.preference.PreferenceManager;
 import java.util.ArrayList;
@@ -19,7 +24,6 @@ import java.util.List;
 import android.graphics.Color;
 import android.widget.Toast;
 import android.content.SharedPreferences;
-import android.Manifest;
 import android.view.View;
 import android.view.View.OnClickListener;
 
@@ -43,12 +47,10 @@ public class MainActivity extends AppCompatActivity {
     public TextView mTextMessage;
     public LinearLayout lLv;
     public Button btnOpen, btnBack, btnAugen, btnFwd;
-    static final int MY_PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE = 1;
     public int LaufendeFrage = -1;
     public List<tectFragen> fragenLs = new ArrayList<tectFragen>();
     /** Check boxes / radio buttons of the current question; tag = choice letter. */
     public final List<CompoundButton> optionViews = new ArrayList<CompoundButton>();
-    private boolean pendingStart = false;
     /** Показан ли правильный ответ на текущий вопрос (сбрасывается при смене вопроса). */
     public boolean answerRevealed = false;
 
@@ -64,9 +66,28 @@ public class MainActivity extends AppCompatActivity {
         String checkedLetters; // буквы отмеченных вариантов, например "AC"
     }
 
-    public String APP_PREFERENCES_FNAME;
+    /** Uri выбранного файла с вопросами (строкой); null, если файл ещё не выбирали. */
+    public String APP_PREFERENCES_URI;
     public boolean APP_PREFERENCES_SHUFFLEQ = true;
     private SharedPreferences mSettings;
+
+    /**
+     * Системный выбор файла (Storage Access Framework). Права на память не нужны: приложение
+     * получает доступ только к тому файлу, который пользователь выбрал сам.
+     */
+    private final ActivityResultLauncher<String[]> filePicker = registerForActivityResult(
+            new ActivityResultContracts.OpenDocument() {
+                @Override
+                public Intent createIntent(Context context, String[] input) {
+                    Intent intent = super.createIntent(context, input);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    // Просим запомнить доступ к файлу, чтобы он пережил перезапуск приложения
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                    return intent;
+                }
+            },
+            uri -> onFilePicked(uri));
 
 
     @Override
@@ -81,24 +102,7 @@ public class MainActivity extends AppCompatActivity {
         // if вместо switch: в AGP 8 идентификаторы ресурсов не являются константами
         int id = item.getItemId();
         if (id == R.id.menu_open) {
-            if (!hasStoragePermission()) {
-                requestStoragePermission();
-                return true;
-            }
-            OpenFileDialog fileDialog = new OpenFileDialog(this)
-                    .setFilter(".*\\.txt")
-                    .setOpenDialogListener(new OpenFileDialog.OpenDialogListener() {
-                        @Override
-                        public void OnSelectedFile(String fileName) {
-                            Toast.makeText(getApplicationContext(), fileName, Toast.LENGTH_LONG).show();
-                            SharedPreferences.Editor editor = getSharedPreferences(
-                                    getPackageName() + "_preferences", MODE_PRIVATE).edit();
-                            editor.putString("tect_fname", fileName);
-                            editor.apply();
-                            startQuiz();
-                        }
-                    });
-            fileDialog.show();
+            openFilePicker();
         } else if (id == R.id.menu_settings) {
             startActivity(new Intent(MainActivity.this, SettingsActivity.class));
         }
@@ -162,12 +166,11 @@ public class MainActivity extends AppCompatActivity {
         btnOpen.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (!hasStoragePermission()) {
-                    pendingStart = true; // continue in onRequestPermissionsResult()
-                    requestStoragePermission();
-                    return;
+                // Открываем сохранённый файл; если его нет или он недоступен, предлагаем выбрать
+                funke.ConfLesen();
+                if (APP_PREFERENCES_URI == null || !startQuiz(Uri.parse(APP_PREFERENCES_URI))) {
+                    openFilePicker();
                 }
-                startQuiz();
             }
         });
 
@@ -224,53 +227,60 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private boolean hasStoragePermission() {
-        return checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
-                == PackageManager.PERMISSION_GRANTED;
+    private void openFilePicker() {
+        // На некоторых провайдерах .txt отдаётся как octet-stream, поэтому разрешаем оба типа
+        filePicker.launch(new String[]{"text/plain", "application/octet-stream"});
     }
 
-    private void requestStoragePermission() {
-        requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                MY_PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE);
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != MY_PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE) return;
-        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-        boolean start = pendingStart;
-        pendingStart = false;
-        if (!granted) {
-            Toast.makeText(this, R.string.err_permission_denied, Toast.LENGTH_LONG).show();
-        } else if (start) {
-            startQuiz();
+    /** Вызывается после выбора файла в системном диалоге; uri == null, если пользователь отменил выбор. */
+    private void onFilePicked(Uri uri) {
+        if (uri == null) return;
+        try {
+            getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (SecurityException e) {
+            // Провайдер не поддерживает постоянный доступ: файл откроется сейчас,
+            // а после перезапуска его придётся выбрать снова
+        }
+        if (startQuiz(uri)) {
+            // Запоминаем файл только после успешной загрузки, чтобы не хранить негодный uri
+            PreferenceManager.getDefaultSharedPreferences(this)
+                    .edit().putString("tect_uri", uri.toString()).apply();
+            APP_PREFERENCES_URI = uri.toString();
+            Toast.makeText(this, displayName(uri), Toast.LENGTH_SHORT).show();
         }
     }
 
-    /** Loads the question file and shows the first question; does nothing visible if loading fails. */
-    private void startQuiz() {
-        if (Laden.ladeTest() == 0) return;
+    /** Имя файла для показа пользователю; если узнать не удалось, возвращает сам uri. */
+    private String displayName(Uri uri) {
+        try (Cursor cursor = getContentResolver().query(uri,
+                new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                String name = cursor.getString(0);
+                if (name != null) return name;
+            }
+        } catch (RuntimeException e) {
+            // не критично: имя нужно только для подсказки
+        }
+        return uri.toString();
+    }
+
+    /**
+     * Загружает вопросы из файла и показывает первый.
+     *
+     * @return true, если вопросы загружены; при ошибке пользователь уже получил сообщение
+     */
+    private boolean startQuiz(Uri uri) {
+        if (Laden.ladeTest(uri) == 0) return false;
         btnOpen.setVisibility(View.GONE);
         btnFwd.setEnabled(true);
         funke.AndereFrage(2);
+        return true;
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        //PreferenceManager preferenceManager = getPreferenceManager();
-        //if (preferenceManager.getSharedPreferences().getBoolean("pref_sync", true)){
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-        APP_PREFERENCES_SHUFFLEQ = preferences.getBoolean("shuffle_q", true);
-        APP_PREFERENCES_FNAME = preferences.getString("tect_fname", "none");
-        Toast.makeText(MainActivity.this, APP_PREFERENCES_FNAME, Toast.LENGTH_SHORT).show();
-        // if (mSettings.contains(APP_PREFERENCES_COUNTER)) {
-            // Получаем число из настроек
-            //mCounter = mSettings.getInt(APP_PREFERENCES_COUNTER, 0);
-            // Выводим на экран данные из настроек
-            //mInfoTextView.setText("Я насчитал "
-              //      + mCounter + " ворон");
+        funke.ConfLesen();
     }
 
     @Override
