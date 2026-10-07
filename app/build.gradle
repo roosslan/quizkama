@@ -30,6 +30,9 @@ android {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    // Выравнивает версии Kotlin: AndroidX тянет kotlin-stdlib 1.8.x, где уже слиты jdk7/jdk8, а другая
+    // зависимость тянет kotlin-stdlib-jdk7/jdk8 1.6.21, и проверка дубликатов классов падала
+    implementation platform('org.jetbrains.kotlin:kotlin-bom:1.8.22')
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     testImplementation 'junit:junit:4.13.2'
