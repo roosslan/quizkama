@@ -8,7 +8,9 @@ import android.net.Uri;
 import android.provider.OpenableColumns;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import android.content.pm.PackageManager;
 import android.view.MenuInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -105,8 +107,9 @@ public class MainActivity extends AppCompatActivity {
             openFilePicker();
         } else if (id == R.id.menu_settings) {
             startActivity(new Intent(MainActivity.this, SettingsActivity.class));
+        } else if (id == R.id.options_about) {
+            showAbout();
         }
-        // R.id.options_about пока ничего не делает
         return true;
     }
 
@@ -225,6 +228,21 @@ public class MainActivity extends AppCompatActivity {
         if (state.answerRevealed) {
             showAnswer();
         }
+    }
+
+    /** Окно «О программе»: версия берётся из манифеста (её задаёт app/build.gradle). */
+    private void showAbout() {
+        String version = "?";
+        try {
+            version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (PackageManager.NameNotFoundException e) {
+            // своё собственное приложение всегда найдётся; оставляем «?»
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.about_title)
+                .setMessage(getString(R.string.about_message, version))
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
     }
 
     private void openFilePicker() {
