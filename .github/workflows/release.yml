@@ -26,7 +26,7 @@ jobs:
           packages: 'platform-tools platforms;android-35 build-tools;34.0.0'
 
       - name: JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -65,9 +65,14 @@ jobs:
           "${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --print-certs "dist/quizkama-${TAG}.apk"
           rm -f "${RUNNER_TEMP}/release.jks"
 
+      - name: Что будет приложено к релизу
+        run: ls -l dist/
+
       - name: Опубликовать релиз
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.apk
+          # без этого релиз без APK считался бы успешным
+          fail_on_unmatched_files: true
           generate_release_notes: true
           prerelease: ${{ steps.build.outputs.signed != 'true' }}
