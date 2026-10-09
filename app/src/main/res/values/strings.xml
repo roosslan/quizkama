@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">quizkama 2.11</string>
+    <string name="app_name">QuizKama</string>
     <string name="title_home">Home</string>
     <string name="title_dashboard">Dashboard</string>
     <string name="title_notifications">Notifications</string>
@@ -9,6 +9,8 @@
     <string name="err_file_read">Can not read the file</string>
     <string name="err_no_questions">No questions found in the file</string>
     <string name="warn_questions_skipped">Loaded %1$d questions, skipped %2$d that could not be parsed</string>
+    <string name="about_title">About</string>
+    <string name="about_message">QuizKama v. %1$s\n(c) 2016, rasa, ruslan@mail.ch</string>
     <string name="err_no_access">No access to the file. Please choose it again</string>
 
     <!-- Strings related to Settings -->

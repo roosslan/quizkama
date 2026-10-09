@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Получить код
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # полная история нужна для номера сборки (git rev-list --count)
 
       - name: Android SDK
         uses: android-actions/setup-android@v3
@@ -36,10 +38,10 @@ jobs:
       - name: Юнит-тесты
         run: ./gradlew testDebugUnitTest --stacktrace
 
-      # Если заданы секреты подписи, собираем release и подписываем своим ключом.
-      # Если нет, публикуем debug-сборку (она подписана отладочным ключом и ставится вручную),
-      # а релиз помечается как pre-release.
-      - name: Сборка и подпись APK
+      # Если заданы секреты подписи, release подписывается вашим ключом (Gradle читает
+      # KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD). Если нет, он подписывается
+      # отладочным ключом, а релиз помечается как pre-release.
+      - name: Сборка release APK
         id: build
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -49,28 +51,19 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
-          BT="${ANDROID_HOME}/build-tools/34.0.0"
-          mkdir -p dist
           if [ -n "${KEYSTORE_BASE64:-}" ]; then
-            ./gradlew assembleRelease --stacktrace
-            "${BT}/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk "${RUNNER_TEMP}/aligned.apk"
             echo "${KEYSTORE_BASE64}" | base64 -d > "${RUNNER_TEMP}/release.jks"
-            "${BT}/apksigner" sign \
-              --ks "${RUNNER_TEMP}/release.jks" \
-              --ks-pass env:KEYSTORE_PASSWORD \
-              --key-alias "${KEY_ALIAS}" \
-              --key-pass env:KEY_PASSWORD \
-              --out "dist/quizkama-${TAG}.apk" \
-              "${RUNNER_TEMP}/aligned.apk"
-            "${BT}/apksigner" verify "dist/quizkama-${TAG}.apk"
-            rm -f "${RUNNER_TEMP}/release.jks"
+            export KEYSTORE_FILE="${RUNNER_TEMP}/release.jks"
             echo "signed=true" >> "${GITHUB_OUTPUT}"
           else
-            echo "::warning::Секреты подписи не заданы: публикуется debug-сборка"
-            ./gradlew assembleDebug --stacktrace
-            cp app/build/outputs/apk/debug/app-debug.apk "dist/quizkama-${TAG}-debug.apk"
+            echo "::warning::Секреты подписи не заданы: release подписан отладочным ключом"
             echo "signed=false" >> "${GITHUB_OUTPUT}"
           fi
+          ./gradlew assembleRelease --stacktrace
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/quizkama-${TAG}.apk"
+          "${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --print-certs "dist/quizkama-${TAG}.apk"
+          rm -f "${RUNNER_TEMP}/release.jks"
 
       - name: Опубликовать релиз
         uses: softprops/action-gh-release@v2

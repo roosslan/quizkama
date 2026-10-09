@@ -1,5 +1,26 @@
 apply plugin: 'com.android.application'
 
+// Версия: MAJOR.MINOR задаются вручную в version.properties, а номер сборки берётся из git
+// (число коммитов в текущей ветке) и растёт сам с каждым коммитом. Так версия не захардкожена
+// и одинаково считается локально и в CI (там нужен полный клон: fetch-depth: 0).
+def versionProps = new Properties()
+file("$rootDir/version.properties").withInputStream { versionProps.load(it) }
+def gitBuildNumber = {
+    try {
+        def process = ['git', 'rev-list', '--count', 'HEAD'].execute(null, rootDir)
+        def out = process.text.trim()
+        return process.waitFor() == 0 && out.isInteger() ? out.toInteger() : 1
+    } catch (Exception ignored) {
+        return 1 // git недоступен (например, исходники скачаны архивом)
+    }
+}()
+
+// Подпись релиза: если задана переменная KEYSTORE_FILE (путь к .jks), используется ваш ключ
+// (KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD). Иначе release подписывается отладочным ключом,
+// чтобы assembleRelease всегда выдавал APK, который можно установить.
+def releaseKeystore = System.getenv('KEYSTORE_FILE')
+def hasReleaseKey = releaseKeystore && file(releaseKeystore).exists()
+
 android {
     namespace 'com.rasa.quizkama'
     compileSdk 35
@@ -11,16 +32,32 @@ android {
         // 34, а не 35: на 35 Android 15 принудительно включает edge-to-edge, и разметку пришлось бы
         // переделывать под системные панели. Для публикации в Google Play потребуется поднять.
         targetSdk 34
-        versionCode 2
-        versionName '2.11'
+        versionCode gitBuildNumber
+        versionName "${versionProps['MAJOR']}.${versionProps['MINOR']}.${gitBuildNumber}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }
+    signingConfigs {
+        release {
+            if (hasReleaseKey) {
+                storeFile file(releaseKeystore)
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS')
+                keyPassword System.getenv('KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            signingConfig hasReleaseKey ? signingConfigs.release : signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+    }
+    lint {
+        // Проверка lint при каждой release-сборке на старом коде может ронять сборку из-за
+        // замечаний, не связанных с релизом; lint можно запускать отдельно: ./gradlew lint
+        checkReleaseBuilds false
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8

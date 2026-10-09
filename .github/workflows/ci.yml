@@ -16,13 +16,15 @@ permissions:
 
 jobs:
   build:
-    name: Тесты и сборка debug
+    name: Тесты и сборка release
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     steps:
       - name: Получить код
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # полная история нужна для номера сборки (git rev-list --count)
 
       - name: Android SDK
         uses: android-actions/setup-android@v3
@@ -43,8 +45,9 @@ jobs:
       - name: Юнит-тесты
         run: ./gradlew testDebugUnitTest --stacktrace
 
-      - name: Сборка debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      # Release подписывается отладочным ключом (своего ключа в CI нет), но APK ставится на устройство
+      - name: Сборка release APK
+        run: ./gradlew assembleRelease --stacktrace
 
       - name: Отчёты тестов
         if: always()
@@ -54,9 +57,9 @@ jobs:
           path: app/build/reports/tests/
           if-no-files-found: ignore
 
-      - name: Debug APK
+      - name: APK
         uses: actions/upload-artifact@v4
         with:
-          name: quizkama-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: quizkama-apk
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error

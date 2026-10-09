@@ -10,7 +10,6 @@
 - Варианты ответа перемешиваются для каждого вопроса; порядок вопросов тоже можно перемешивать (Настройки)
 - Показ правильного ответа: он подсвечивается синим
 - Навигация без касаний по кнопкам: свайпы и клавиши громкости
-- Игнорирует строки-водяные знаки `gratisexam`, которые встречаются в некоторых дампах экзаменов
 
 ## Подготовка файла с вопросами из PDF с gratisexam
 
@@ -47,33 +46,15 @@
 ./gradlew assembleDebug
 ```
 
-Модульные тесты: `./gradlew testDebugUnitTest`.
+Release-сборка: /gradlew assembleRelease
+Если задана переменная окружения `KEYSTORE_FILE`
+(путь к `.jks`, плюс `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`), APK подписывается вашим
+ключом, иначе — отладочным. Своё хранилище ключей можно также создать через
+ *Build > Generate Signed Bundle / APK* в Android Studio.
 
-Подпись релиза в репозитории не настроена. Используйте свой keystore через
-*Build > Generate Signed Bundle / APK* в Android Studio.
-
-## CI/CD
-
-GitHub Actions (`.github/workflows`):
-
-- **CI** (`ci.yml`) запускается при каждом push в `trunk` и в pull request'ах: модульные тесты
-  (`testDebugUnitTest`) и сборка debug; debug APK и отчёты о тестах прикрепляются к запуску.
-- **Release** (`release.yml`) запускается при push тега вида `v2.12`
-  (`git tag v2.12 && git push origin v2.12`). Он собирает APK и публикует его как GitHub Release.
-  Если в секретах репозитория заданы `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` и `KEY_PASSWORD`,
-  релизный APK подписывается вашим ключом; иначе публикуется debug-сборка, а релиз помечается как предварительный.
+Чтобы получить значение секрета с хранилищем ключей: `base64 -w0 release.jks`
+(в Windows: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.jks"))`).
 
 Чтобы получить значение секрета с keystore: `base64 -w0 release.jks` (в Windows: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.jks"))`).
 
-## Структура проекта
-
-```text
-app/src/main/java/.../quizkama/
-├── MainActivity.java         # Интерфейс, кнопки, навигация свайпами и клавишами громкости
-├── Parser.java               # Разбор текстового формата QUESTION / A. / Correct Answer:
-├── tectLoad.java             # Читает выбранный файл через ContentResolver, запускает парсер, перемешивает
-├── tectSharedFuncts.java     # Отрисовка текущего вопроса, навигация, настройки
-├── tectFragen.java           # Модель вопроса (текст, варианты, правильный ответ)
-├── OnSwipeTouchListener.java # Распознавание свайпов
-└── SettingsActivity.java     # Экран настроек
-```
+Модульные тесты: `./gradlew testDebugUnitTest`
